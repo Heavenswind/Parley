@@ -3,6 +3,7 @@ import '@xyflow/react/dist/style.css';
 import { useMemo } from 'react';
 import { Canvas } from './components/Canvas';
 import { Inspector } from './components/Inspector';
+import { PlaytestPanel } from './components/Playtest';
 import { Problems, Variables } from './components/Sidebar';
 import { Toolbar } from './components/Toolbar';
 import { validate } from './model/validate';
@@ -15,12 +16,13 @@ export default function App() {
   return (
     <ReactFlowProvider>
       <div className="app">
-        <Toolbar />
+        <Toolbar errorCount={problems.filter((p) => p.severity === 'error').length} />
         <main className="workspace">
           <div className="canvas">
             <Canvas problems={problems} />
           </div>
           <aside className="sidebar">
+            <PlaytestPanel />
             <Inspector />
             <Variables />
             <Problems problems={problems} />

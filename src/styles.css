@@ -116,3 +116,16 @@ input.invalid { border-color: var(--danger); }
 .gnode .option .react-flow__handle, .gnode-out .react-flow__handle { right: -15px; }
 .react-flow__edge-path { stroke: #6b7385; stroke-width: 2; }
 .react-flow__edge.selected .react-flow__edge-path { stroke: var(--accent); }
+
+/* Playtest */
+.spacer { flex: 1; }
+.error { color: var(--danger); }
+.playtest { background: #1b2233; }
+.transcript { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+.transcript .say { margin: 0; color: #c9cdd8; }
+.transcript .current { display: flex; flex-direction: column; gap: 8px; }
+.transcript .current .say { color: var(--text); }
+.choices { display: flex; flex-direction: column; gap: 6px; }
+.choices button { text-align: left; }
+.vars-live { font-size: 12px; border-top: 1px solid var(--border); padding-top: 6px; }
+.vars-live td { padding: 1px 12px 1px 0; }
