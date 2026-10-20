@@ -1,14 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { emptyDialogue, sampleDialogue } from './model/dialogue';
+import { useEditor } from './store';
 
-// The store autosaves to localStorage, which Node doesn't have.
-const memory = new Map<string, string>();
-vi.stubGlobal('localStorage', {
-  getItem: (k: string) => memory.get(k) ?? null,
-  setItem: (k: string, v: string) => void memory.set(k, v),
-  removeItem: (k: string) => void memory.delete(k),
-});
-const { useEditor } = await import('./store');
+// Tests don't need the autosave; without this, zustand warns that there's no localStorage in Node.
+vi.mock('zustand/middleware', async (original) => ({
+  ...(await original<typeof import('zustand/middleware')>()),
+  persist: <T,>(config: T) => config,
+}));
+
 const store = () => useEditor.getState();
 
 describe('undo and redo', () => {
