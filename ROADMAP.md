@@ -5,8 +5,8 @@ Work I plan to do, roughly in order. Effort estimates are rough.
 ## Editor (≈10 h)
 
 - [x] Undo / redo for every edit (history stack in the store)
-- [ ] Copy, paste and duplicate nodes, keeping links that stay inside the selection
-- [ ] Multi-select editing and box selection to move groups of nodes
+- [x] Copy, paste and duplicate the selected node (Ctrl+C, Ctrl+V, Ctrl+D)
+- [ ] Multi-select and box selection to move, copy and delete groups of nodes (copies keep the links inside the group)
 - [ ] Auto-layout of the graph (left-to-right layered layout)
 - [ ] Comment / sticky-note nodes and coloured groups for organising large conversations
 - [ ] Search for nodes by text, speaker or variable

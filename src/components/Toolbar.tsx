@@ -22,7 +22,7 @@ export function Toolbar({ errorCount }: { errorCount: number }) {
   const playing = useEditor((s) => s.playtest !== null);
   const canUndo = useEditor((s) => s.past.length > 0);
   const canRedo = useEditor((s) => s.future.length > 0);
-  const { setTitle, addNode, load, reset, undo, redo } = useEditor.getState();
+  const { setTitle, addNode, load, reset, undo, redo, copySelection, paste, duplicateSelection } = useEditor.getState();
   const flow = useReactFlow();
   const fileInput = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -34,12 +34,15 @@ export function Toolbar({ errorCount }: { errorCount: number }) {
       const key = e.key.toLowerCase();
       if (key === 'z' && !e.shiftKey) undo();
       else if (key === 'y' || (key === 'z' && e.shiftKey)) redo();
+      else if (key === 'c') copySelection();
+      else if (key === 'v') paste();
+      else if (key === 'd') duplicateSelection();
       else return;
       e.preventDefault();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo]);
+  }, [undo, redo, copySelection, paste, duplicateSelection]);
 
   // New and Sample replace the dialogue in one undoable step, so they don't need a confirmation.
   const replaceWith = (which: 'new' | 'sample') => {

@@ -84,6 +84,31 @@ describe('undo and redo', () => {
     expect(store().dialogue).toEqual(before);
   });
 
+  it('duplicates the selected node as one step and selects the copy', () => {
+    const id = firstLine().id;
+    store().select(id);
+    store().duplicateSelection();
+    const copyId = store().selectedId!;
+    expect(copyId).not.toBe(id);
+    expect(store().dialogue.nodes[copyId]).toMatchObject({ kind: 'line', text: firstLine().text, next: null });
+    expect(store().past).toHaveLength(1);
+    store().undo();
+    expect(store().dialogue).toEqual(sampleDialogue());
+  });
+
+  it('pastes the node as it was when copied, stepping each paste further out', () => {
+    const line = firstLine();
+    store().select(line.id);
+    store().copySelection();
+    store().updateNode(line.id, { text: 'changed after copying' });
+    store().paste();
+    const first = store().dialogue.nodes[store().selectedId!];
+    store().paste();
+    const second = store().dialogue.nodes[store().selectedId!];
+    expect(first).toMatchObject({ text: line.text, position: { x: line.position.x + 40, y: line.position.y + 40 } });
+    expect(second.position).toEqual({ x: line.position.x + 80, y: line.position.y + 80 });
+  });
+
   it('drops the redo list after a new edit', () => {
     store().setTitle('A');
     store().undo();

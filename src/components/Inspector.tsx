@@ -33,7 +33,7 @@ export function Inspector() {
   const node = useEditor((s) => (s.selectedId ? s.dialogue.nodes[s.selectedId] : undefined));
   const isStart = useEditor((s) => s.dialogue.start === s.selectedId);
   const variables = useEditor((s) => s.dialogue.variables);
-  const { updateNode, setStart, deleteNodes } = useEditor.getState();
+  const { updateNode, setStart, deleteNodes, duplicateSelection } = useEditor.getState();
 
   if (!node) {
     return (
@@ -95,6 +95,7 @@ export function Inspector() {
 
       <div className="row">
         <button disabled={isStart} onClick={() => setStart(node.id)}>{isStart ? 'Start node' : 'Make start node'}</button>
+        <button onClick={duplicateSelection} title="Duplicate (Ctrl+D). Ctrl+C / Ctrl+V copy and paste.">Duplicate</button>
         <button className="danger" onClick={() => deleteNodes([node.id])}>Delete</button>
       </div>
     </section>
