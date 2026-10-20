@@ -12,6 +12,7 @@ I'm building it to write NPC conversations for my own games. It's the dialogue c
 - **Conditional choice options:** an option only appears when its condition is true.
 - **Playtest panel:** plays the dialogue the way the game would, highlights the current node on the canvas and shows live variable values.
 - **Problems panel:** live validation for missing start nodes, broken links, unknown variables, expression errors, dead ends and unreachable nodes.
+- **Editing:** undo/redo for every change, including New, Sample and Open; typing in a field or dragging a node is one step. Copy, paste and duplicate nodes.
 - **Files:** autosaves in the browser; save and open `.parley.json` files; *Export for game* writes a runtime JSON file without editor-only data.
 
 ## Built with
@@ -25,17 +26,23 @@ Requires Node.js 20 or newer.
 ```sh
 npm install
 npm run dev        # http://localhost:5173
-npm test           # unit tests for the expression language, runner and validator
+npm test           # unit tests for the expression language, runner, validator, undo and copy/paste
 npm run build      # production build in dist/
 ```
 
 ## Using it
 
-1. Click **Sample** twice to load the example conversation, or **New** twice to start from scratch.
+1. Click **Sample** to load the example conversation, or **New** to start from scratch. Both can be undone.
 2. Add nodes from the toolbar. Drag from a node's right-hand dot to another node to link them, and select a link and press Delete to remove it.
 3. Select a node to edit it in the Inspector. The first node you add becomes the start node; use **Make start node** to change it.
 4. Click **Playtest** to play the conversation from the start.
 5. **Save** keeps the editable file. **Export for game** writes the runtime file and is enabled once there are no errors.
+
+| Key | Action |
+|---|---|
+| Ctrl+Z, Ctrl+Y (or Ctrl+Shift+Z) | Undo, redo (outside text fields) |
+| Ctrl+C, Ctrl+V, Ctrl+D | Copy, paste, duplicate the selected node |
+| Delete / Backspace | Remove the selected node or link |
 
 ## File format
 
