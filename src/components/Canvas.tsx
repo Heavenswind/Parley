@@ -5,7 +5,6 @@ import {
   ReactFlow,
   type Connection,
   type Edge,
-  type EdgeChange,
   type NodeChange,
 } from '@xyflow/react';
 import { useCallback, useMemo, useState } from 'react';
@@ -35,7 +34,7 @@ export function Canvas({ problems }: { problems: Problem[] }) {
   const dialogue = useEditor((s) => s.dialogue);
   const selectedId = useEditor((s) => s.selectedId);
   const activeId = useEditor((s) => s.playtest?.step.nodeId ?? null);
-  const { moveNode, deleteNodes, select, connect, disconnect } = useEditor.getState();
+  const { moveNode, deleteNodes, select, connect } = useEditor.getState();
   // Rendered sizes reported by React Flow. Nodes are rebuilt from the store on every change,
   // so these have to be passed back in or the minimap and fitView see zero-sized nodes.
   const [measured, setMeasured] = useState<Record<string, { width: number; height: number }>>({});
@@ -70,27 +69,21 @@ export function Canvas({ problems }: { problems: Problem[] }) {
     [dialogue],
   );
 
+  // Removals are handled in onDelete, which reports a node and its links together,
+  // so one press of Delete is one undo step.
   const onNodesChange = useCallback((changes: NodeChange<FlowNode>[]) => {
-    const removed: string[] = [];
     const sizes: Record<string, { width: number; height: number }> = {};
     for (const c of changes) {
       if (c.type === 'dimensions' && c.dimensions) sizes[c.id] = c.dimensions;
       else if (c.type === 'position' && c.position) moveNode(c.id, c.position);
       else if (c.type === 'select' && c.selected) select(c.id);
-      else if (c.type === 'remove') removed.push(c.id);
     }
     if (Object.keys(sizes).length) setMeasured((m) => ({ ...m, ...sizes }));
-    if (removed.length) deleteNodes(removed);
-  }, [moveNode, select, deleteNodes]);
+  }, [moveNode, select]);
 
-  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
-    for (const c of changes) {
-      if (c.type === 'remove') {
-        const { source, handle } = parseEdgeId(c.id);
-        disconnect(source, handle);
-      }
-    }
-  }, [disconnect]);
+  const onDelete = useCallback(({ nodes, edges }: { nodes: FlowNode[]; edges: Edge[] }) => {
+    deleteNodes(nodes.map((n) => n.id), edges.map((e) => parseEdgeId(e.id)));
+  }, [deleteNodes]);
 
   const onConnect = useCallback((c: Connection) => {
     if (c.sourceHandle && c.source !== c.target) connect(c.source, c.sourceHandle, c.target);
@@ -102,7 +95,7 @@ export function Canvas({ problems }: { problems: Problem[] }) {
       edges={edges}
       nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
+      onDelete={onDelete}
       onConnect={onConnect}
       onPaneClick={() => select(null)}
       deleteKeyCode={['Delete', 'Backspace']}

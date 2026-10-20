@@ -4,7 +4,7 @@ Work I plan to do, roughly in order. Effort estimates are rough.
 
 ## Editor (≈10 h)
 
-- [ ] Undo / redo for every edit (history stack in the store)
+- [x] Undo / redo for every edit (history stack in the store)
 - [ ] Copy, paste and duplicate nodes, keeping links that stay inside the selection
 - [ ] Multi-select editing and box selection to move groups of nodes
 - [ ] Auto-layout of the graph (left-to-right layered layout)

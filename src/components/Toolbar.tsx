@@ -1,5 +1,5 @@
 import { useReactFlow } from '@xyflow/react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { download, readDialogueFile, slug } from '../files';
 import { sampleDialogue, toRuntime } from '../model/dialogue';
 import type { NodeKind } from '../model/types';
@@ -14,23 +14,35 @@ const KINDS: { kind: NodeKind; label: string }[] = [
   { kind: 'end', label: 'End' },
 ];
 
+const isTyping = (target: EventTarget | null) =>
+  target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+
 export function Toolbar({ errorCount }: { errorCount: number }) {
   const title = useEditor((s) => s.dialogue.title);
   const playing = useEditor((s) => s.playtest !== null);
-  const { setTitle, addNode, load, reset } = useEditor.getState();
+  const canUndo = useEditor((s) => s.past.length > 0);
+  const canRedo = useEditor((s) => s.future.length > 0);
+  const { setTitle, addNode, load, reset, undo, redo } = useEditor.getState();
   const flow = useReactFlow();
   const fileInput = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<string | null>(null);
-  // "New" and "Sample" replace the current dialogue, so they ask for a second click instead of a browser dialog.
-  const [armed, setArmed] = useState<'new' | 'sample' | null>(null);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // Inside a text field, Ctrl+Z belongs to the field.
+      if (!(e.ctrlKey || e.metaKey) || isTyping(e.target)) return;
+      const key = e.key.toLowerCase();
+      if (key === 'z' && !e.shiftKey) undo();
+      else if (key === 'y' || (key === 'z' && e.shiftKey)) redo();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [undo, redo]);
+
+  // New and Sample replace the dialogue in one undoable step, so they don't need a confirmation.
   const replaceWith = (which: 'new' | 'sample') => {
-    if (armed !== which) {
-      setArmed(which);
-      setTimeout(() => setArmed((a) => (a === which ? null : a)), 3000);
-      return;
-    }
-    setArmed(null);
     if (which === 'new') reset();
     else load(sampleDialogue());
     setTimeout(() => flow.fitView(), 0);
@@ -70,11 +82,15 @@ export function Toolbar({ errorCount }: { errorCount: number }) {
           <button key={kind} className={`add add-${kind}`} onClick={() => addAtCenter(kind)}>{label}</button>
         ))}
       </div>
+      <div className="group">
+        <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">Undo</button>
+        <button onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Y)">Redo</button>
+      </div>
       <span className="spacer" />
       {message && <span className="error">{message}</span>}
       <div className="group">
-        <button onClick={() => replaceWith('new')}>{armed === 'new' ? 'Click again to clear' : 'New'}</button>
-        <button onClick={() => replaceWith('sample')}>{armed === 'sample' ? 'Click again to replace' : 'Sample'}</button>
+        <button onClick={() => replaceWith('new')} title="Start an empty dialogue (undoable)">New</button>
+        <button onClick={() => replaceWith('sample')} title="Load the sample dialogue (undoable)">Sample</button>
         <button onClick={() => fileInput.current?.click()}>Open…</button>
         <input
           ref={fileInput}

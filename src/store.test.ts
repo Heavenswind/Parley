@@ -1,0 +1,94 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { emptyDialogue, sampleDialogue } from './model/dialogue';
+
+// The store autosaves to localStorage, which Node doesn't have.
+const memory = new Map<string, string>();
+vi.stubGlobal('localStorage', {
+  getItem: (k: string) => memory.get(k) ?? null,
+  setItem: (k: string, v: string) => void memory.set(k, v),
+  removeItem: (k: string) => void memory.delete(k),
+});
+const { useEditor } = await import('./store');
+const store = () => useEditor.getState();
+
+describe('undo and redo', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    useEditor.setState({ dialogue: sampleDialogue(), past: [], future: [], lastMerge: null, selectedId: null, playtest: null });
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const firstLine = () => Object.values(store().dialogue.nodes).find((n) => n.kind === 'line')!;
+
+  it('undoes typing in one field as a single step', () => {
+    const id = firstLine().id;
+    for (const text of ['H', 'He', 'Hey']) {
+      store().updateNode(id, { text });
+      vi.advanceTimersByTime(200);
+    }
+    expect(store().past).toHaveLength(1);
+    store().undo();
+    expect(store().dialogue).toEqual(sampleDialogue());
+  });
+
+  it('starts a new step after a pause or in another field', () => {
+    const id = firstLine().id;
+    store().updateNode(id, { text: 'a' });
+    vi.advanceTimersByTime(1500);
+    store().updateNode(id, { text: 'ab' });
+    store().updateNode(id, { speaker: 'Mara' });
+    expect(store().past).toHaveLength(3);
+  });
+
+  it('undoes a whole drag at once', () => {
+    const id = firstLine().id;
+    for (let x = 0; x < 50; x += 5) {
+      store().moveNode(id, { x, y: 0 });
+      vi.advanceTimersByTime(16);
+    }
+    expect(store().past).toHaveLength(1);
+  });
+
+  it('makes New undoable and redoes it', () => {
+    store().reset();
+    expect(store().dialogue).toEqual(emptyDialogue());
+    store().undo();
+    expect(store().dialogue).toEqual(sampleDialogue());
+    store().redo();
+    expect(store().dialogue).toEqual(emptyDialogue());
+  });
+
+  it('restores deleted nodes and their links, and clears a selection that no longer exists', () => {
+    const id = firstLine().id;
+    store().deleteNodes([id]);
+    expect(store().dialogue.nodes[id]).toBeUndefined();
+    store().undo();
+    expect(store().dialogue).toEqual(sampleDialogue());
+
+    store().addNode('end', { x: 0, y: 0 });
+    const added = store().selectedId!;
+    store().undo();
+    expect(store().dialogue.nodes[added]).toBeUndefined();
+    expect(store().selectedId).toBeNull();
+  });
+
+  it('deletes a node and other selected links in one step', () => {
+    const before = store().dialogue;
+    const choice = Object.values(before.nodes).find((n) => n.kind === 'choice')!;
+    const condition = Object.values(before.nodes).find((n) => n.kind === 'condition')!;
+    store().deleteNodes([choice.id], [{ source: condition.id, handle: 'true' }]);
+    expect(store().dialogue.nodes[choice.id]).toBeUndefined();
+    expect(store().dialogue.nodes[condition.id]).toMatchObject({ whenTrue: null });
+    expect(store().past).toHaveLength(1);
+    store().undo();
+    expect(store().dialogue).toEqual(before);
+  });
+
+  it('drops the redo list after a new edit', () => {
+    store().setTitle('A');
+    store().undo();
+    expect(store().future).toHaveLength(1);
+    store().addVariable();
+    expect(store().future).toEqual([]);
+  });
+});

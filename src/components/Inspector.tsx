@@ -103,9 +103,13 @@ export function Inspector() {
 
 function ChoiceEditor({ node }: { node: ChoiceNode }) {
   const { replaceNode } = useEditor.getState();
-  const setOptions = (options: ChoiceOption[]) => replaceNode({ ...node, options });
+  const setOptions = (options: ChoiceOption[], mergeKey?: string) => replaceNode({ ...node, options }, mergeKey);
+  // Typing in an option's field merges into one undo step; adding, moving and removing are steps of their own.
   const patchOption = (i: number, patch: Partial<ChoiceOption>) =>
-    setOptions(node.options.map((o, j) => (i === j ? { ...o, ...patch } : o)));
+    setOptions(
+      node.options.map((o, j) => (i === j ? { ...o, ...patch } : o)),
+      `option:${node.options[i].id}:${Object.keys(patch).join(',')}`,
+    );
   const moveOption = (i: number, by: number) => {
     const options = [...node.options];
     const [o] = options.splice(i, 1);
@@ -117,7 +121,7 @@ function ChoiceEditor({ node }: { node: ChoiceNode }) {
     <>
       <label className="field">
         <span>Prompt (optional)</span>
-        <input value={node.prompt} onChange={(e) => replaceNode({ ...node, prompt: e.target.value })} />
+        <input value={node.prompt} onChange={(e) => replaceNode({ ...node, prompt: e.target.value }, 'prompt')} />
       </label>
       {node.options.map((o, i) => (
         <fieldset key={o.id} className="option-edit">
