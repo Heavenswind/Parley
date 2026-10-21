@@ -10,7 +10,7 @@ import {
 } from '@xyflow/react';
 import { useCallback, useMemo, useState } from 'react';
 import { linksOf } from '../model/links';
-import type { NodeKind } from '../model/types';
+import type { NodeKind, Position } from '../model/types';
 import type { Problem } from '../model/validate';
 import { useEditor } from '../store';
 import { nodeTypes, type FlowNode } from './nodes';
@@ -33,9 +33,10 @@ const parseEdgeId = (id: string) => {
 
 export function Canvas({ problems }: { problems: Problem[] }) {
   const dialogue = useEditor((s) => s.dialogue);
-  const selectedId = useEditor((s) => s.selectedId);
+  const selectedIds = useEditor((s) => s.selectedIds);
   const activeId = useEditor((s) => s.playtest?.step.nodeId ?? null);
-  const { moveNode, deleteNodes, select, connect } = useEditor.getState();
+  const { moveNodes, deleteNodes, select, setSelection, connect } = useEditor.getState();
+  const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   // Rendered sizes reported by React Flow. Nodes are rebuilt from the store on every change,
   // so these have to be passed back in or the minimap and fitView see zero-sized nodes.
   const [measured, setMeasured] = useState<Record<string, { width: number; height: number }>>({});
@@ -49,11 +50,11 @@ export function Canvas({ problems }: { problems: Problem[] }) {
       id: node.id,
       type: 'dialogue',
       position: node.position,
-      selected: node.id === selectedId,
+      selected: selected.has(node.id),
       measured: measured[node.id],
       data: { node, isStart: node.id === dialogue.start, isActive: node.id === activeId, problems: counts.get(node.id) ?? 0 },
     }));
-  }, [dialogue, selectedId, activeId, problems, measured]);
+  }, [dialogue, selected, activeId, problems, measured]);
 
   const edges = useMemo<Edge[]>(
     () =>
@@ -74,16 +75,25 @@ export function Canvas({ problems }: { problems: Problem[] }) {
   );
 
   // Removals are handled in onDelete, which reports a node and its links together,
-  // so one press of Delete is one undo step.
+  // so one press of Delete is one undo step. Moves are batched so a drag of several
+  // selected nodes is one undo step too.
   const onNodesChange = useCallback((changes: NodeChange<FlowNode>[]) => {
     const sizes: Record<string, { width: number; height: number }> = {};
+    const moves: { id: string; position: Position }[] = [];
+    const picked: string[] = [];
+    const dropped = new Set<string>();
     for (const c of changes) {
       if (c.type === 'dimensions' && c.dimensions) sizes[c.id] = c.dimensions;
-      else if (c.type === 'position' && c.position) moveNode(c.id, c.position);
-      else if (c.type === 'select' && c.selected) select(c.id);
+      else if (c.type === 'position' && c.position) moves.push({ id: c.id, position: c.position });
+      else if (c.type === 'select') (c.selected ? picked.push(c.id) : dropped.add(c.id));
+    }
+    if (moves.length) moveNodes(moves);
+    if (picked.length || dropped.size) {
+      const current = useEditor.getState().selectedIds;
+      setSelection([...current.filter((id) => !dropped.has(id) && !picked.includes(id)), ...picked]);
     }
     if (Object.keys(sizes).length) setMeasured((m) => ({ ...m, ...sizes }));
-  }, [moveNode, select]);
+  }, [moveNodes, setSelection]);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setSelectedEdges((prev) => {

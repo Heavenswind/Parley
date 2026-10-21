@@ -23,7 +23,8 @@ interface EditorState {
   past: Dialogue[];
   future: Dialogue[];
   lastMerge: { key: string; at: number } | null;
-  selectedId: string | null;
+  /** Selected node ids, in the order they were picked. */
+  selectedIds: string[];
   playtest: Playtest | null;
 
   /** Replaces the dialogue (Open, Sample). Undoable. */
@@ -38,13 +39,17 @@ interface EditorState {
   updateNode: (id: string, patch: Partial<DialogueNode>) => void;
   /** `mergeKey` names the field being typed in, so each keystroke doesn't become its own undo step. */
   replaceNode: (node: DialogueNode, mergeKey?: string) => void;
-  moveNode: (id: string, position: Position) => void;
+  /** Moves nodes together (a drag of the whole selection), as one undo step. */
+  moveNodes: (moves: { id: string; position: Position }[]) => void;
   /** Deletes nodes (and every link into them) plus any extra links, as one undo step. */
   deleteNodes: (ids: string[], links?: { source: string; handle: string }[]) => void;
   connect: (source: string, handle: string, target: string) => void;
   disconnect: (source: string, handle: string) => void;
   setStart: (id: string) => void;
+  /** Selects one node, or nothing. */
   select: (id: string | null) => void;
+  /** Replaces the whole selection (box selection, ctrl-clicks). */
+  setSelection: (ids: string[]) => void;
   /** The copied nodes, as they were when copied. Not saved. */
   clipboard: { nodes: DialogueNode[]; pastes: number } | null;
   copySelection: () => void;
@@ -75,28 +80,27 @@ export const useEditor = create<EditorState>()(
         });
       const editNode = (id: string, fn: (n: DialogueNode) => DialogueNode, mergeKey?: string) =>
         edit((d) => (d.nodes[id] ? { ...d, nodes: { ...d.nodes, [id]: fn(d.nodes[id]) } } : d), mergeKey);
-      /** Moves through history, dropping the selection if its node no longer exists. */
+      /** Moves through history, dropping selected nodes that no longer exist. */
       const travel = (step: (t: Timeline<Dialogue>) => Timeline<Dialogue>) =>
         set((s) => {
           const t = step(timeline(s));
-          const selectedId = s.selectedId && t.present.nodes[s.selectedId] ? s.selectedId : null;
-          return { ...fromTimeline(t), selectedId, lastMerge: null };
+          return { ...fromTimeline(t), selectedIds: s.selectedIds.filter((id) => t.present.nodes[id]), lastMerge: null };
         });
-      /** Adds pasted or duplicated nodes as one undo step and selects the first. */
+      /** Adds pasted or duplicated nodes as one undo step and selects them. */
       const addCopies = (copies: DialogueNode[]) => {
         if (copies.length === 0) return;
         edit((d) => ({ ...d, nodes: { ...d.nodes, ...Object.fromEntries(copies.map((n) => [n.id, n])) } }));
-        set({ selectedId: copies[0].id });
+        set({ selectedIds: copies.map((n) => n.id) });
       };
       const replaceAll = (dialogue: Dialogue) =>
-        set((s) => ({ ...fromTimeline(record(timeline(s), dialogue)), selectedId: null, playtest: null, lastMerge: null }));
+        set((s) => ({ ...fromTimeline(record(timeline(s), dialogue)), selectedIds: [], playtest: null, lastMerge: null }));
 
       return {
         dialogue: sampleDialogue(),
         past: [],
         future: [],
         lastMerge: null,
-        selectedId: null,
+        selectedIds: [],
         playtest: null,
 
         load: replaceAll,
@@ -113,12 +117,25 @@ export const useEditor = create<EditorState>()(
             start: d.start ?? node.id,
             nodes: { ...d.nodes, [node.id]: node },
           }));
-          set({ selectedId: node.id });
+          set({ selectedIds: [node.id] });
         },
         updateNode: (id, patch) =>
           editNode(id, (n) => ({ ...n, ...patch }) as DialogueNode, `node:${id}:${Object.keys(patch).sort().join(',')}`),
         replaceNode: (node, mergeKey) => editNode(node.id, () => node, mergeKey && `node:${node.id}:${mergeKey}`),
-        moveNode: (id, position) => editNode(id, (n) => ({ ...n, position }), `move:${id}`),
+        moveNodes: (moves) => {
+          if (moves.length === 0) return;
+          const key = `move:${moves.map((m) => m.id).sort().join('+')}`;
+          edit((d) => {
+            const nodes = { ...d.nodes };
+            let changed = false;
+            for (const { id, position } of moves) {
+              if (!nodes[id]) continue;
+              nodes[id] = { ...nodes[id], position };
+              changed = true;
+            }
+            return changed ? { ...d, nodes } : d;
+          }, key);
+        },
         deleteNodes: (ids, links = []) => {
           edit((d) => {
             const nodes = { ...d.nodes };
@@ -130,18 +147,19 @@ export const useEditor = create<EditorState>()(
             const start = d.start && ids.includes(d.start) ? null : d.start;
             return { ...d, nodes, start };
           });
-          set((s) => ({ selectedId: s.selectedId && ids.includes(s.selectedId) ? null : s.selectedId }));
+          set((s) => ({ selectedIds: s.selectedIds.filter((id) => !ids.includes(id)) }));
         },
         connect: (source, handle, target) => editNode(source, (n) => withLink(n, handle, target)),
         disconnect: (source, handle) => editNode(source, (n) => withLink(n, handle, null)),
         setStart: (id) => edit((d) => ({ ...d, start: id })),
-        select: (selectedId) => set({ selectedId }),
+        select: (id) => set({ selectedIds: id ? [id] : [] }),
+        setSelection: (selectedIds) => set({ selectedIds }),
 
         clipboard: null,
         copySelection: () =>
           set((s) => {
-            const node = s.selectedId ? s.dialogue.nodes[s.selectedId] : undefined;
-            return node ? { clipboard: { nodes: [node], pastes: 0 } } : {};
+            const nodes = s.selectedIds.map((id) => s.dialogue.nodes[id]).filter(Boolean);
+            return nodes.length ? { clipboard: { nodes, pastes: 0 } } : {};
           }),
         paste: () => {
           const { clipboard } = get();
@@ -152,9 +170,9 @@ export const useEditor = create<EditorState>()(
           set({ clipboard: { ...clipboard, pastes: clipboard.pastes + 1 } });
         },
         duplicateSelection: () => {
-          const { selectedId, dialogue } = get();
-          const node = selectedId ? dialogue.nodes[selectedId] : undefined;
-          if (node) addCopies(cloneNodes([node], { x: 40, y: 40 }));
+          const { selectedIds, dialogue } = get();
+          const nodes = selectedIds.map((id) => dialogue.nodes[id]).filter(Boolean);
+          if (nodes.length) addCopies(cloneNodes(nodes, { x: 40, y: 40 }));
         },
 
         addVariable: () =>

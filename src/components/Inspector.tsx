@@ -30,8 +30,9 @@ function ExprField({ label, value, onChange, placeholder }: {
 }
 
 export function Inspector() {
-  const node = useEditor((s) => (s.selectedId ? s.dialogue.nodes[s.selectedId] : undefined));
-  const isStart = useEditor((s) => s.dialogue.start === s.selectedId);
+  const count = useEditor((s) => s.selectedIds.length);
+  const node = useEditor((s) => (s.selectedIds.length === 1 ? s.dialogue.nodes[s.selectedIds[0]] : undefined));
+  const isStart = useEditor((s) => s.selectedIds.length === 1 && s.dialogue.start === s.selectedIds[0]);
   const variables = useEditor((s) => s.dialogue.variables);
   const { updateNode, setStart, deleteNodes, duplicateSelection } = useEditor.getState();
 
@@ -39,7 +40,16 @@ export function Inspector() {
     return (
       <section className="panel">
         <h2>Inspector</h2>
-        <p className="muted">Select a node to edit it. Drag from a node's right edge to another node to link them.</p>
+        {count > 1 ? (
+          <p className="muted">
+            {count} nodes selected. Drag to move them together; Ctrl+C copies them, Ctrl+D duplicates them, Delete removes them.
+          </p>
+        ) : (
+          <p className="muted">
+            Select a node to edit it. Drag from a node's right edge to another node to link them. Shift+drag on the canvas
+            selects several nodes at once.
+          </p>
+        )}
       </section>
     );
   }

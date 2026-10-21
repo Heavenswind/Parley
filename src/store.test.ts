@@ -13,7 +13,7 @@ const store = () => useEditor.getState();
 describe('undo and redo', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    useEditor.setState({ dialogue: sampleDialogue(), past: [], future: [], lastMerge: null, selectedId: null, playtest: null });
+    useEditor.setState({ dialogue: sampleDialogue(), past: [], future: [], lastMerge: null, selectedIds: [], playtest: null });
   });
   afterEach(() => vi.useRealTimers());
 
@@ -39,13 +39,18 @@ describe('undo and redo', () => {
     expect(store().past).toHaveLength(3);
   });
 
-  it('undoes a whole drag at once', () => {
+  it('undoes a whole drag at once, even with several nodes selected', () => {
     const id = firstLine().id;
+    const other = Object.values(store().dialogue.nodes).find((n) => n.id !== id)!.id;
     for (let x = 0; x < 50; x += 5) {
-      store().moveNode(id, { x, y: 0 });
+      store().moveNodes([
+        { id, position: { x, y: 0 } },
+        { id: other, position: { x, y: 100 } },
+      ]);
       vi.advanceTimersByTime(16);
     }
     expect(store().past).toHaveLength(1);
+    expect(store().dialogue.nodes[other].position).toEqual({ x: 45, y: 100 });
   });
 
   it('makes New undoable and redoes it', () => {
@@ -65,10 +70,10 @@ describe('undo and redo', () => {
     expect(store().dialogue).toEqual(sampleDialogue());
 
     store().addNode('end', { x: 0, y: 0 });
-    const added = store().selectedId!;
+    const added = store().selectedIds[0];
     store().undo();
     expect(store().dialogue.nodes[added]).toBeUndefined();
-    expect(store().selectedId).toBeNull();
+    expect(store().selectedIds).toEqual([]);
   });
 
   it('deletes a node and other selected links in one step', () => {
@@ -87,12 +92,30 @@ describe('undo and redo', () => {
     const id = firstLine().id;
     store().select(id);
     store().duplicateSelection();
-    const copyId = store().selectedId!;
+    const copyId = store().selectedIds[0];
     expect(copyId).not.toBe(id);
     expect(store().dialogue.nodes[copyId]).toMatchObject({ kind: 'line', text: firstLine().text, next: null });
     expect(store().past).toHaveLength(1);
     store().undo();
     expect(store().dialogue).toEqual(sampleDialogue());
+  });
+
+  it('copies, duplicates and deletes a whole selection together', () => {
+    const before = store().dialogue;
+    const line = firstLine();
+    const choice = Object.values(before.nodes).find((n) => n.kind === 'choice')!;
+    store().setSelection([line.id, choice.id]);
+    store().duplicateSelection();
+    expect(store().selectedIds).toHaveLength(2);
+    const copies = store().selectedIds.map((id) => store().dialogue.nodes[id]);
+    expect(copies.map((n) => n.kind)).toEqual(['line', 'choice']);
+    expect(Object.keys(store().dialogue.nodes)).toHaveLength(Object.keys(before.nodes).length + 2);
+    expect(store().past).toHaveLength(1);
+    store().deleteNodes(store().selectedIds);
+    expect(store().selectedIds).toEqual([]);
+    store().undo();
+    store().undo();
+    expect(store().dialogue).toEqual(before);
   });
 
   it('pastes the node as it was when copied, stepping each paste further out', () => {
@@ -101,9 +124,9 @@ describe('undo and redo', () => {
     store().copySelection();
     store().updateNode(line.id, { text: 'changed after copying' });
     store().paste();
-    const first = store().dialogue.nodes[store().selectedId!];
+    const first = store().dialogue.nodes[store().selectedIds[0]];
     store().paste();
-    const second = store().dialogue.nodes[store().selectedId!];
+    const second = store().dialogue.nodes[store().selectedIds[0]];
     expect(first).toMatchObject({ text: line.text, position: { x: line.position.x + 40, y: line.position.y + 40 } });
     expect(second.position).toEqual({ x: line.position.x + 80, y: line.position.y + 80 });
   });
