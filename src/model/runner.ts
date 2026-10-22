@@ -29,6 +29,11 @@ export function start(d: Dialogue): { state: RunState; step: Step } {
   return settle(d, { nodeId: d.start, vars: initialVars(d) });
 }
 
+/** Starts a run at a specific node with fresh variables, to test a branch without clicking to it. */
+export function startAt(d: Dialogue, nodeId: string): { state: RunState; step: Step } {
+  return settle(d, { nodeId, vars: initialVars(d) });
+}
+
 /** Moves past the current line, or picks `optionId` on the current choice. */
 export function advance(d: Dialogue, state: RunState, optionId?: string): { state: RunState; step: Step } {
   const node = state.nodeId ? d.nodes[state.nodeId] : undefined;

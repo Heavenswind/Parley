@@ -2,6 +2,7 @@ import { ExprError, parse } from '../model/expr';
 import { newId } from '../model/dialogue';
 import type { ChoiceNode, ChoiceOption, DialogueNode } from '../model/types';
 import { useEditor } from '../store';
+import { startPlaytest } from './Playtest';
 
 function exprError(src: string): string | null {
   if (!src.trim()) return null;
@@ -108,6 +109,12 @@ export function Inspector() {
         <button onClick={duplicateSelection} title="Duplicate (Ctrl+D). Ctrl+C / Ctrl+V copy and paste.">Duplicate</button>
         <button className="danger" onClick={() => deleteNodes([node.id])}>Delete</button>
       </div>
+      <button
+        onClick={() => startPlaytest(node.id)}
+        title="Run the dialogue starting at this node, with variables at their initial values"
+      >
+        ▶ Playtest from here
+      </button>
     </section>
   );
 }

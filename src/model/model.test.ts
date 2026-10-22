@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assertDialogue, createNode, emptyDialogue, sampleDialogue, toRuntime } from './dialogue';
 import { linksOf, withLink, withoutLinksTo } from './links';
-import { advance, start } from './runner';
+import { advance, start, startAt } from './runner';
 import type { Dialogue } from './types';
 import { validate } from './validate';
 
@@ -41,6 +41,17 @@ describe('runner', () => {
 
     ({ state, step } = advance(d, state, 'bye'));
     expect(step).toEqual({ kind: 'end', nodeId: 'end_map', tag: 'left_with_map', error: undefined });
+  });
+
+  it('starts a run from any node with fresh variables', () => {
+    const d = sampleDialogue();
+    const fromChoice = startAt(d, 'offer');
+    expect(fromChoice.step.kind).toBe('choice');
+    expect(fromChoice.state.vars).toEqual({ gold: 15, has_map: false });
+    // Starting on an automatic node settles through it: pay and give run, then the thank-you line.
+    const fromSet = startAt(d, 'pay');
+    expect(fromSet.step).toMatchObject({ kind: 'line', nodeId: 'thanks', text: expect.stringContaining('5 gold left') });
+    expect(fromSet.state.vars).toEqual({ gold: 5, has_map: true });
   });
 
   it('ends with an error instead of throwing on broken graphs', () => {

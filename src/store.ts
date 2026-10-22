@@ -12,6 +12,8 @@ export interface Playtest {
   step: Step;
   /** Every step shown so far, for the transcript. */
   history: Step[];
+  /** The node the run was started from, or undefined for the dialogue's start node. */
+  from?: string;
 }
 
 /** Edits with the same merge key this close together undo as one step (typing in a field, one drag). */

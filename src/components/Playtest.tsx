@@ -1,10 +1,10 @@
-import { advance, start, type Step } from '../model/runner';
+import { advance, start, startAt, type Step } from '../model/runner';
 import { useEditor } from '../store';
 
-export function startPlaytest() {
+export function startPlaytest(fromId?: string) {
   const { dialogue, setPlaytest } = useEditor.getState();
-  const { state, step } = start(dialogue);
-  setPlaytest({ state, step, history: [step] });
+  const { state, step } = fromId ? startAt(dialogue, fromId) : start(dialogue);
+  setPlaytest({ state, step, history: [step], from: fromId });
 }
 
 function StepView({ step }: { step: Step }) {
@@ -29,7 +29,7 @@ export function PlaytestPanel() {
     const next = advance(dialogue, state, optionId);
     // Record the player's pick in the transcript as a pseudo-line.
     const picked: Step[] = chosen ? [{ kind: 'line', nodeId: step.nodeId!, speaker: '▶ You', text: chosen.text }] : [];
-    setPlaytest({ ...next, history: [...history, ...picked, next.step] });
+    setPlaytest({ ...next, history: [...history, ...picked, next.step], from: playtest.from });
   };
 
   return (
@@ -37,9 +37,10 @@ export function PlaytestPanel() {
       <h2>
         Playtest
         <span className="spacer" />
-        <button onClick={startPlaytest}>Restart</button>
+        <button onClick={() => startPlaytest(playtest.from)}>Restart</button>
         <button onClick={() => setPlaytest(null)}>Stop</button>
       </h2>
+      {playtest.from && <p className="muted note">Started mid-dialogue, with variables at their initial values.</p>}
 
       <div className="transcript">
         {history.slice(0, -1).map((s, i) => <StepView key={i} step={s} />)}

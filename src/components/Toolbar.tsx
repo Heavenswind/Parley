@@ -115,7 +115,7 @@ export function Toolbar({ errorCount }: { errorCount: number }) {
         >
           Export for game
         </button>
-        <button className="primary" onClick={startPlaytest}>{playing ? 'Restart playtest' : 'Playtest'}</button>
+        <button className="primary" onClick={() => startPlaytest()}>{playing ? 'Restart playtest' : 'Playtest'}</button>
       </div>
     </header>
   );
