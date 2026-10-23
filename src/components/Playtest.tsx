@@ -1,4 +1,5 @@
-import { advance, start, startAt, type Step } from '../model/runner';
+import { advance, setVar, start, startAt, type Step } from '../model/runner';
+import type { Value } from '../model/types';
 import { useEditor } from '../store';
 
 export function startPlaytest(fromId?: string) {
@@ -31,6 +32,11 @@ export function PlaytestPanel() {
     const picked: Step[] = chosen ? [{ kind: 'line', nodeId: step.nodeId!, speaker: '▶ You', text: chosen.text }] : [];
     setPlaytest({ ...next, history: [...history, ...picked, next.step], from: playtest.from });
   };
+  // Editing a variable re-renders the current step, so its text and options react right away.
+  const setVariable = (name: string, value: Value) => {
+    const next = setVar(dialogue, state, name, value);
+    setPlaytest({ ...next, history: [...history.slice(0, -1), next.step], from: playtest.from });
+  };
 
   return (
     <section className="panel playtest">
@@ -60,10 +66,29 @@ export function PlaytestPanel() {
         </div>
       </div>
 
-      <table className="vars-live">
+      <table className="vars-live" title="Edit a value to test a branch; the current step reacts right away">
         <tbody>
           {Object.entries(state.vars).map(([name, value]) => (
-            <tr key={name}><td><code>{name}</code></td><td><code>{JSON.stringify(value)}</code></td></tr>
+            <tr key={name}>
+              <td><code>{name}</code></td>
+              <td>
+                {typeof value === 'boolean' ? (
+                  <input type="checkbox" aria-label={`Value of ${name}`} checked={value} onChange={(e) => setVariable(name, e.target.checked)} />
+                ) : typeof value === 'number' ? (
+                  <input
+                    type="number"
+                    aria-label={`Value of ${name}`}
+                    value={value}
+                    onChange={(e) => {
+                      const n = Number(e.target.value);
+                      if (Number.isFinite(n)) setVariable(name, n);
+                    }}
+                  />
+                ) : (
+                  <input type="text" aria-label={`Value of ${name}`} value={value} onChange={(e) => setVariable(name, e.target.value)} />
+                )}
+              </td>
+            </tr>
           ))}
         </tbody>
       </table>

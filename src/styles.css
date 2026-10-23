@@ -129,3 +129,4 @@ input.invalid { border-color: var(--danger); }
 .choices button { text-align: left; }
 .vars-live { font-size: 12px; border-top: 1px solid var(--border); padding-top: 6px; }
 .vars-live td { padding: 1px 12px 1px 0; }
+.vars-live input[type='number'], .vars-live input[type='text'] { width: 90px; padding: 1px 4px; font-size: 12px; }

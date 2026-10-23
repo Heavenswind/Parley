@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { assertDialogue, createNode, emptyDialogue, sampleDialogue, toRuntime } from './dialogue';
 import { linksOf, withLink, withoutLinksTo } from './links';
-import { advance, start, startAt } from './runner';
+import { advance, setVar, start, startAt } from './runner';
 import type { Dialogue } from './types';
 import { validate } from './validate';
 
@@ -52,6 +52,20 @@ describe('runner', () => {
     const fromSet = startAt(d, 'pay');
     expect(fromSet.step).toMatchObject({ kind: 'line', nodeId: 'thanks', text: expect.stringContaining('5 gold left') });
     expect(fromSet.state.vars).toEqual({ gold: 5, has_map: true });
+  });
+
+  it('edits a variable mid-run and re-renders the current step', () => {
+    const d = sampleDialogue();
+    let { state, step } = start(d);
+    ({ state, step } = setVar(d, state, 'gold', 100));
+    expect(step).toMatchObject({ kind: 'line', text: expect.stringContaining('100 gold') });
+
+    ({ state, step } = advance(d, state));
+    expect(step.kind === 'choice' && step.options.map((o) => o.id)).toEqual(['buy', 'ask', 'bye']);
+    // Dropping the gold below the price hides the buy option on the spot.
+    ({ state, step } = setVar(d, state, 'gold', 3));
+    expect(step.kind === 'choice' && step.options.map((o) => o.id)).toEqual(['ask', 'bye']);
+    expect(state.vars).toEqual({ gold: 3, has_map: false });
   });
 
   it('ends with an error instead of throwing on broken graphs', () => {

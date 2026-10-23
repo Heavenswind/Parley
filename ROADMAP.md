@@ -24,7 +24,7 @@ Work I plan to do, roughly in order. Effort estimates are rough.
 
 ## Playtest (≈3 h)
 
-- [ ] Edit variable values mid-playtest to test branches quickly
+- [x] Edit variable values mid-playtest to test branches quickly
 - [x] Start a playtest from the selected node
 - [ ] Step back in the transcript
 - [ ] Coverage view: highlight nodes no playtest has reached yet

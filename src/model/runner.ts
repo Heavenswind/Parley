@@ -34,6 +34,11 @@ export function startAt(d: Dialogue, nodeId: string): { state: RunState; step: S
   return settle(d, { nodeId, vars: initialVars(d) });
 }
 
+/** Changes one variable mid-run and re-renders the current step with it, to test branches quickly. */
+export function setVar(d: Dialogue, state: RunState, name: string, value: Value): { state: RunState; step: Step } {
+  return settle(d, { ...state, vars: { ...state.vars, [name]: value } });
+}
+
 /** Moves past the current line, or picks `optionId` on the current choice. */
 export function advance(d: Dialogue, state: RunState, optionId?: string): { state: RunState; step: Step } {
   const node = state.nodeId ? d.nodes[state.nodeId] : undefined;
